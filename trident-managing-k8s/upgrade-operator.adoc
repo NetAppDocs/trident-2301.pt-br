@@ -1,0 +1,323 @@
+---
+sidebar: sidebar 
+permalink: trident-managing-k8s/upgrade-operator.html 
+keywords: upgrade, trident, methods, operator, tridentctl, helm 
+summary: Você pode atualizar facilmente uma instalação existente do Astra Trident usando o operador. 
+---
+= Atualize com o operador
+:hardbreaks:
+:allow-uri-read: 
+:icons: font
+:imagesdir: ../media/
+
+
+[role="lead"]
+Você pode atualizar facilmente uma instalação existente do Astra Trident usando o operador.
+
+.Antes de começar
+Para atualizar usando o operador, as seguintes condições devem ser atendidas:
+
+* Você precisa ter uma instalação do Astra Trident baseada em CSI. Todos os lançamentos de 19,07 em são baseados em CSI. É possível examinar os pods no namespace do Trident para verificar.
++
+** A nomeação de pod em versões anteriores a 23,01 segue `trident-csi-*` uma convenção.
+** O nome do pod no 23,01 e posterior usa: `trident-controller-<generated id>` Para o pod do controlador; `trident-node-<operating system>-<generated id>` para os pods do nó; para o pod `trident-operator-<generated id>` do operador.
+
+
+* Se tiver desinstalado o CSI Trident e os metadados da instalação persistirem, pode atualizar utilizando o operador.
+* Somente uma instalação do Astra Trident deve existir em todos os namespaces em um determinado cluster do Kubernetes.
+* Você deve estar usando um cluster do Kubernetes executando link:../trident-get-started/requirements.html["Uma versão compatível do Kubernetes"]o .
+* Se CRDs de snapshot alfa estiverem presentes, você deve removê-los com `tridentctl obliviate alpha-snapshot-crd`. Isso exclui as CRDs para a especificação do instantâneo alfa. Para obter instantâneos existentes que devem ser excluídos/migrados, https://netapp.io/2020/01/30/alpha-to-beta-snapshots/["este blog"^]consulte .
+
+
+[WARNING]
+====
+* Ao atualizar o Trident usando o operador na Plataforma de contêiner OpenShift, você deve atualizar para o Trident 21.01.1 ou posterior. O operador Trident lançado com 21.01.0 contém um problema conhecido que foi corrigido no 21.01.1. Para obter mais detalhes, consulte https://github.com/NetApp/trident/issues/517["Detalhes do problema no GitHub"^] .
+* Não utilize o operador para atualizar o Trident se estiver a utilizar uma `etcd` versão Trident baseada em -(19,04 ou anterior).
+
+
+====
+
+
+== Atualizar uma instalação do operador Trident com escopo de cluster
+
+Siga estas etapas para atualizar uma instalação do operador Trident com escopo de cluster. Todos os Astra Trident versões 21,01 e superiores usam um operador com escopo de cluster.
+
+.Passos
+. Verifique sua versão do Astra Trident:
++
+[listing]
+----
+./tridentctl -n trident version
+----
+. Exclua o operador Trident que foi usado para instalar a instância atual do Astra Trident. Por exemplo, se você estiver atualizando do 22,01, execute o seguinte comando:
++
+[listing]
+----
+kubectl delete -f 22.01/trident-installer/deploy/bundle.yaml -n trident
+----
+. Se você personalizou sua instalação inicial usando `TridentOrchestrator` atributos, você pode editar o `TridentOrchestrator` objeto para modificar os parâmetros de instalação. Isso pode incluir alterações feitas para especificar Registros de imagens Trident e CSI espelhados para o modo offline, habilitar logs de depuração ou especificar segredos de recebimento de imagens.
+. Instale o Astra Trident usando o arquivo YAML do pacote correto para seu ambiente e a versão do Astra Trident. Por exemplo, se você estiver instalando o Astra Trident 23,01 para Kubernetes 1,26, execute o seguinte comando:
++
+[listing]
+----
+kubectl create -f 23.01.1/trident-installer/deploy/bundle_post_1_25.yaml -n trident
+----
++
+[NOTE]
+====
+O Trident fornece um arquivo de pacote que pode ser usado para instalar o operador e criar objetos associados para sua versão do Kubernetes.
+
+** Para clusters com Kubernetes 1,24 ou inferior, use link:https://github.com/NetApp/trident/tree/stable/v23.01/deploy/bundle_pre_1_25.yaml["bundle_pre_1_25.yaml"^]o .
+** Para clusters com Kubernetes 1,25 ou superior, use link:https://github.com/NetApp/trident/tree/stable/v23.01/deploy/bundle_post_1_25.yaml["bundle_post_1_25.yaml"^]o .
+
+
+====
+
+
+.Resultados
+O operador do Trident identificará uma instalação do Astra Trident existente e a atualizará para a mesma versão do operador.
+
+
+
+== Atualize uma instalação de operador com escopo de namespace
+
+Siga estas etapas para atualizar a partir de uma instância do Astra Trident instalada usando o operador com escopo de namespace (versões 20,07 a 20,10).
+
+.Passos
+. Verifique o status da instalação existente do Trident. Para fazer isso, verifique o *Status* de  `TridentProvisioner`. O estado deve ser `Installed`.
++
+[listing]
+----
+kubectl describe tprov trident -n trident | grep Message: -A 3
+Message:  Trident installed
+Status:   Installed
+Version:  v20.10.1
+----
++
+
+NOTE: Se o status for exibido `Updating`, certifique-se de resolvê-lo antes de prosseguir. Para obter uma lista de valores de estado possíveis, https://docs.netapp.com/us-en/trident/trident-get-started/kubernetes-deploy-operator.html["aqui"^]consulte .
+
+. Crie o `TridentOrchestrator` CRD usando o manifesto fornecido com o instalador do Trident.
++
+[listing]
+----
+# Download the release required [23.01.1]
+mkdir 23.01.1
+cd 23.01.1
+wget https://github.com/NetApp/trident/releases/download/v23.01.1/trident-installer-23.01.1.tar.gz
+tar -xf trident-installer-23.01.1.tar.gz
+cd trident-installer
+kubectl create -f deploy/crds/trident.netapp.io_tridentorchestrators_crd_post1.16.yaml
+----
+. Exclua o operador com escopo de namespace usando seu manifesto. Para concluir esta etapa, você precisa do arquivo YAML do pacote usado para implantar o operador com escopo de namespace `\https://github.com/NetApp/trident/tree/stable/_vXX.XX_/deploy/_BUNDLE.YAML_` de onde `_vXX.XX_` está o número da versão e `_BUNDLE.YAML_` é o nome do arquivo YAML do pacote.
++
+
+NOTE: Você deve fazer as alterações necessárias nos parâmetros de instalação do Trident (por exemplo, alterando os valores para `tridentImage` `autosupportImage` , , repositório de imagens privado e fornecendo `imagePullSecrets`) depois de excluir o operador com escopo de namespace e antes de instalar o operador com escopo de cluster. Para obter uma lista completa de parâmetros que podem ser atualizados, consulte o link:https://docs.netapp.com/us-en/trident/trident-get-started/kubernetes-customize-deploy.html#configuration-options["opções de configuração"].
+
++
+[listing]
+----
+#Ensure you are in the right directory
+pwd
+/root/20.10.1/trident-installer
+
+#Delete the namespace-scoped operator
+kubectl delete -f deploy/<BUNDLE.YAML> -n trident
+serviceaccount "trident-operator" deleted
+clusterrole.rbac.authorization.k8s.io "trident-operator" deleted
+clusterrolebinding.rbac.authorization.k8s.io "trident-operator" deleted
+deployment.apps "trident-operator" deleted
+podsecuritypolicy.policy "tridentoperatorpods" deleted
+
+#Confirm the Trident operator was removed
+kubectl get all -n trident
+NAME                               READY   STATUS    RESTARTS   AGE
+pod/trident-csi-68d979fb85-dsrmn   6/6     Running   12         99d
+pod/trident-csi-8jfhf              2/2     Running   6          105d
+pod/trident-csi-jtnjz              2/2     Running   6          105d
+pod/trident-csi-lcxvh              2/2     Running   8          105d
+
+NAME                  TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)              AGE
+service/trident-csi   ClusterIP   10.108.174.125   <none>        34571/TCP,9220/TCP   105d
+
+NAME                         DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR                                     AGE
+daemonset.apps/trident-csi   3         3         3       3            3           kubernetes.io/arch=amd64,kubernetes.io/os=linux   105d
+
+NAME                          READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/trident-csi   1/1     1            1           105d
+
+NAME                                     DESIRED   CURRENT   READY   AGE
+replicaset.apps/trident-csi-68d979fb85   1         1         1       105d
+----
++
+Nesta fase, o `trident-operator-xxxxxxxxxx-xxxxx` pod é excluído.
+
+. (Opcional) se os parâmetros de instalação precisarem ser modificados, atualize a `TridentProvisioner` especificação. Essas alterações podem ser alterações, como modificar o Registro de imagens privadas para extrair imagens de contentor, ativar logs de depuração ou especificar segredos de recebimento de imagens.
++
+[listing]
+----
+kubectl patch tprov <trident-provisioner-name> -n <trident-namespace> --type=merge -p '{"spec":{"debug":true}}'
+----
+. Instale o operador Trident.
++
+
+NOTE: A instalação do operador com escopo de cluster inicia a migração `TridentProvisioner` de objetos para `TridentOrchestrator` objetos, exclui `TridentProvisioner` objetos e `tridentprovisioner` CRD e atualiza o Astra Trident para a versão do operador com escopo de cluster que está sendo usado. No exemplo a seguir, o Trident é atualizado para 23.01.1.
+
++
+
+IMPORTANT: A atualização do Astra Trident usando o operador Trident resulta na migração de `tridentProvisioner` para um `tridentOrchestrator` objeto com o mesmo nome. Este procedimento é automaticamente gerido pelo operador. A atualização também terá o Astra Trident instalado no mesmo namespace que antes.
+
++
+[listing]
+----
+#Ensure you are in the correct directory
+pwd
+/root/23.01.1/trident-installer
+
+#Install the cluster-scoped operator in the **same namespace**
+kubectl create -f deploy/<BUNDLE.YAML>
+serviceaccount/trident-operator created
+clusterrole.rbac.authorization.k8s.io/trident-operator created
+clusterrolebinding.rbac.authorization.k8s.io/trident-operator created
+deployment.apps/trident-operator created
+podsecuritypolicy.policy/tridentoperatorpods created
+
+#All tridentProvisioners will be removed, including the CRD itself
+kubectl get tprov -n trident
+Error from server (NotFound): Unable to list "trident.netapp.io/v1, Resource=tridentprovisioners": the server could not find the requested resource (get tridentprovisioners.trident.netapp.io)
+
+#tridentProvisioners are replaced by tridentOrchestrator
+kubectl get torc
+NAME      AGE
+trident   13s
+
+#Examine Trident pods in the namespace
+kubectl get pods -n trident
+NAME                                     READY   STATUS    RESTARTS   AGE
+trident-controller-79df798bdc-m79dc      6/6     Running   0          1m41s
+trident-node-linux-xrst8                 2/2     Running   0          1m41s
+trident-operator-5574dbbc68-nthjv        1/1     Running   0          1m52s
+
+#Confirm Trident has been updated to the desired version
+kubectl describe torc trident | grep Message -A 3
+Message:                Trident installed
+Namespace:              trident
+Status:                 Installed
+Version:                v23.01.1
+----
++
+
+NOTE: Os `trident-controller` nomes e POD refletem a convenção de nomenclatura introduzida em 23,01.
+
+
+
+
+
+== Atualize uma instalação de operador baseada em Helm
+
+Execute as etapas a seguir para atualizar uma instalação do operador baseada em Helm.
+
+
+WARNING: Ao atualizar um cluster do Kubernetes do 1,24 para o 1,25 ou posterior que tenha o Astra Trident instalado, você deve atualizar o Values.yaml para definir `excludePodSecurityPolicy` `true` ou adicionar `--set excludePodSecurityPolicy=true` `helm upgrade` ao comando antes de atualizar o cluster.
+
+.Passos
+. Baixe o mais recente lançamento do Astra Trident.
+. Use o `helm upgrade` comando onde `trident-operator-23.01.1.tgz` reflete a versão para a qual você deseja atualizar.
++
+[listing]
+----
+helm upgrade <name> trident-operator-23.01.1.tgz
+----
++
+[NOTE]
+====
+Se você definir opções não padrão durante a instalação inicial (como especificar Registros privados espelhados para imagens Trident e CSI), use `--set` para garantir que essas opções estejam incluídas no comando upgrade, caso contrário, os valores serão redefinidos para padrão.
+
+Por exemplo, para alterar o valor padrão `tridentDebug` do , execute o seguinte comando:
+
+[listing]
+----
+helm upgrade <name> trident-operator-23.01.1-custom.tgz --set tridentDebug=true
+----
+====
+. Execute `helm list` para verificar se o gráfico e a versão do aplicativo foram atualizados. Execute `tridentctl logs` para rever todas as mensagens de depuração.
+
+
+.Resultados
+O operador do Trident identificará uma instalação do Astra Trident existente e a atualizará para a mesma versão do operador.
+
+
+
+== Atualize a partir de uma instalação que não seja do operador
+
+Pode atualizar para a versão mais recente do operador Trident a partir de uma `tridentctl` instalação.
+
+.Passos
+. Baixe o mais recente lançamento do Astra Trident.
++
+[listing]
+----
+# Download the release required [23.01.1]
+mkdir 23.01.1
+cd 23.01.1
+wget https://github.com/NetApp/trident/releases/download/v22.01.1/trident-installer-23.01.1.tar.gz
+tar -xf trident-installer-23.01.1.tar.gz
+cd trident-installer
+----
+. Crie o `tridentorchestrator` CRD a partir do manifesto.
++
+[listing]
+----
+kubectl create -f deploy/crds/trident.netapp.io_tridentorchestrators_crd_post1.16.yaml
+----
+. Implante o operador.
++
+[listing]
+----
+#Install the cluster-scoped operator in the **same namespace**
+kubectl create -f deploy/<BUNDLE.YAML>
+serviceaccount/trident-operator created
+clusterrole.rbac.authorization.k8s.io/trident-operator created
+clusterrolebinding.rbac.authorization.k8s.io/trident-operator created
+deployment.apps/trident-operator created
+podsecuritypolicy.policy/tridentoperatorpods created
+
+#Examine the pods in the Trident namespace
+NAME                                  READY   STATUS    RESTARTS   AGE
+trident-controller-79df798bdc-m79dc   6/6     Running   0          150d
+trident-node-linux-xrst8              2/2     Running   0          150d
+trident-operator-5574dbbc68-nthjv     1/1     Running   0          1m30s
+----
+. Crie `TridentOrchestrator` um CR para a instalação do Astra Trident.
++
+[listing]
+----
+#Create a tridentOrchestrator to initiate a Trident install
+cat deploy/crds/tridentorchestrator_cr.yaml
+apiVersion: trident.netapp.io/v1
+kind: TridentOrchestrator
+metadata:
+  name: trident
+spec:
+  debug: true
+  namespace: trident
+
+kubectl create -f deploy/crds/tridentorchestrator_cr.yaml
+
+#Examine the pods in the Trident namespace
+NAME                                READY   STATUS    RESTARTS   AGE
+trident-csi-79df798bdc-m79dc        6/6     Running   0          1m
+trident-csi-xrst8                   2/2     Running   0          1m
+trident-operator-5574dbbc68-nthjv   1/1     Running   0          5m41s
+
+#Confirm Trident was upgraded to the desired version
+kubectl describe torc trident | grep Message -A 3
+Message:                Trident installed
+Namespace:              trident
+Status:                 Installed
+Version:                v23.01.1
+----
+
+
+.Resultados
+Os backends e PVCs existentes estão disponíveis automaticamente.
