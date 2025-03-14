@@ -73,13 +73,13 @@ cluster1::*> volume snapshot restore -vserver vs0 -volume vol3 -snapshot vol3_sn
 A replicação de dados pode desempenhar um papel importante na proteção contra perda de dados devido a falha do storage array.
 
 
-NOTE: Para saber mais sobre as tecnologias de replicação do ONTAP, consulte o https://docs.netapp.com/ontap-9/topic/com.netapp.doc.dot-cm-concepts/GUID-A9A2F347-3E05-4F80-9E9C-CEF8F0A2F8E1.html["Documentação do ONTAP"^].
+NOTE: Para saber mais sobre as tecnologias de replicação do ONTAP, consulte o https://docs.netapp.com/us-en/ontap/concepts/snapshot-copies-concept.html["Documentação do ONTAP"^].
 
 
 
 === Replicação de máquinas virtuais de storage (SVM) da SnapMirror
 
-Use https://docs.netapp.com/ontap-9/topic/com.netapp.doc.dot-cm-concepts/GUID-8B187484-883D-4BB4-A1BC-35AC278BF4DC.html["SnapMirror"^] o para replicar um SVM completo, que inclui suas configurações e volumes. Em caso de desastre, você pode ativar o SVM de destino do SnapMirror para começar a fornecer dados. Você pode voltar para o primário quando os sistemas forem restaurados.
+Use https://docs.netapp.com/us-en/ontap/concepts/snapmirror-disaster-recovery-data-transfer-concept.html["SnapMirror"^] o para replicar um SVM completo, que inclui suas configurações e volumes. Em caso de desastre, você pode ativar o SVM de destino do SnapMirror para começar a fornecer dados. Você pode voltar para o primário quando os sistemas forem restaurados.
 
 O Astra Trident não pode configurar as relações de replicação por si só. Portanto, o administrador de storage pode usar o recurso replicação do SnapMirror SVM da ONTAP para replicar volumes automaticamente para um destino de recuperação de desastres (DR).
 
